@@ -61,6 +61,8 @@ inline const std::vector<FactoryPreset>& factoryPresets()
             { "flt_decay", 0.2f }, { "flt_sustain", 0 },
             { "amp_decay", 0.25f }, { "amp_sustain", 0 }, { "amp_release", 0.15f },
             { "seq_on", 1 }, { "seq_rate", 2 }, { "seq_swing", 0.2f },
+            // its own little pattern (the sequencer itself now starts flat)
+            { "seq_step_2", 7.0f / 12.0f }, { "seq_step_3", 4.0f / 12.0f }, { "seq_step_4", 7.0f / 12.0f }, { "seq_step_6", 7.0f / 12.0f }, { "seq_step_7", 12.0f / 12.0f }, { "seq_step_8", 7.0f / 12.0f }, { "seq_step_10", 7.0f / 12.0f }, { "seq_step_11", 4.0f / 12.0f }, { "seq_step_12", 7.0f / 12.0f }, { "seq_step_14", 4.0f / 12.0f }, { "seq_step_15", 7.0f / 12.0f }, { "seq_step_16", 12.0f / 12.0f },
             { "delay_sync", 11 }, { "delay_feedback", 0.4f }, { "delay_mix", 0.3f },
             { "reverb_mix", 0.15f } } },
 
@@ -173,6 +175,7 @@ public:
 
         auto state = apvts.copyState();
         state.setProperty ("presetName", clean, nullptr);
+        state.removeProperty ("editorWidth", nullptr);   // the window size belongs to the project, not the sound
 
         if (auto xml = state.createXml())
         {
@@ -189,8 +192,11 @@ public:
             if (xml->hasTagName (apvts.state.getType()))
             {
                 const auto skin = apvts.getParameter ("skin")->getValue();
+                const auto width = apvts.state.getProperty ("editorWidth");
                 apvts.replaceState (juce::ValueTree::fromXml (*xml));
                 apvts.getParameter ("skin")->setValueNotifyingHost (skin);   // keep the current skin
+                if (! width.isVoid())
+                    apvts.state.setProperty ("editorWidth", width, nullptr);   // and the current window size
                 apvts.state.setProperty ("presetName", name, nullptr);
                 return true;
             }

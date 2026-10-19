@@ -184,14 +184,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     layout.add (std::make_unique<APF> (PID { "seq_swing", 1 }, "Seq Swing",
                                        Range (0.0f, 1.0f, 0.001f), 0.0f));
 
-    // A musical starter pattern (in 1/12ths, so pitch lands on semitones: 7 = fifth, 12 = octave).
-    static const float pattern[16] = { 0, 7, 4, 7,  0, 7, 12, 7,  0, 7, 4, 7,  0, 4, 7, 12 };
+    // Every lane starts flat (pitch 0, cutoff 0, pan centred) so you can program a pattern from a clean slate.
     for (int i = 0; i < numSteps; ++i)
     {
         const auto idx = juce::String (i + 1);
         layout.add (std::make_unique<juce::AudioParameterBool> (PID { "seq_on_" + idx, 1 }, "Seq Step On " + idx, true));
         layout.add (std::make_unique<APF> (PID { "seq_step_" + idx, 1 }, "Seq Pitch " + idx,
-                                           Range (-1.0f, 1.0f, 0.001f), pattern[i] / 12.0f));
+                                           Range (-1.0f, 1.0f, 0.001f), 0.0f));
         layout.add (std::make_unique<APF> (PID { "seq_cut_" + idx, 1 }, "Seq Cutoff " + idx,
                                            Range (-1.0f, 1.0f, 0.001f), 0.0f));
         layout.add (std::make_unique<APF> (PID { "seq_pan_" + idx, 1 }, "Seq Pan " + idx,

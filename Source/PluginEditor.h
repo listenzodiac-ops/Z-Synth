@@ -204,12 +204,12 @@ private:
 };
 } // namespace ui
 
-class PolyEvolverAudioProcessorEditor : public juce::AudioProcessorEditor,
-                                        private juce::Timer
+class PolyEvolverContent : public juce::Component,
+                           private juce::Timer
 {
 public:
-    explicit PolyEvolverAudioProcessorEditor (PolyEvolverAudioProcessor&);
-    ~PolyEvolverAudioProcessorEditor() override;
+    explicit PolyEvolverContent (PolyEvolverAudioProcessor&);
+    ~PolyEvolverContent() override;
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -247,6 +247,26 @@ private:
 
     double lastTick = 0.0;
     int shownStep = -2;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PolyEvolverContent)
+};
+
+// The window the host sees. It holds the whole interface at its design size (1800 x 900) and simply scales
+// it, so the layout looks identical at any size. It opens at a laptop-friendly size and remembers the size
+// you drag it to (saved with the project).
+class PolyEvolverAudioProcessorEditor : public juce::AudioProcessorEditor
+{
+public:
+    explicit PolyEvolverAudioProcessorEditor (PolyEvolverAudioProcessor&);
+
+    void resized() override;
+
+    static constexpr int designW = 1800, designH = 900;
+    static constexpr int defaultW = 1260;   // 1260 x 630 (70 %)
+
+private:
+    PolyEvolverAudioProcessor& proc;
+    PolyEvolverContent content;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PolyEvolverAudioProcessorEditor)
 };

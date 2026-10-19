@@ -669,9 +669,8 @@ void Section::resized()
 } // namespace ui
 
 // =================================================================== Editor
-PolyEvolverAudioProcessorEditor::PolyEvolverAudioProcessorEditor (PolyEvolverAudioProcessor& p)
-    : AudioProcessorEditor (&p),
-      proc (p),
+PolyEvolverContent::PolyEvolverContent (PolyEvolverAudioProcessor& p)
+    : proc (p),
       skinAttach (*p.apvts.getParameter ("skin"), [this] (float v) { applySkin ((int) (v + 0.5f)); })
 {
     setLookAndFeel (&laf);
@@ -860,10 +859,7 @@ PolyEvolverAudioProcessorEditor::PolyEvolverAudioProcessorEditor (PolyEvolverAud
     saveButton.onClick = [this] { promptSavePreset(); };
     rebuildPresetMenu();
 
-    setResizable (true, true);
-    setResizeLimits (1260, 630, 2700, 1350);
-    getConstrainer()->setFixedAspectRatio (1800.0 / 900.0);
-    setSize (1800, 900);
+    setSize (PolyEvolverAudioProcessorEditor::designW, PolyEvolverAudioProcessorEditor::designH);
 
     applyLane ((int) (proc.apvts.getRawParameterValue ("seq_dest")->load() + 0.5f));
     skinAttach.sendInitialUpdate();
@@ -872,20 +868,20 @@ PolyEvolverAudioProcessorEditor::PolyEvolverAudioProcessorEditor (PolyEvolverAud
     startTimerHz (60);
 }
 
-PolyEvolverAudioProcessorEditor::~PolyEvolverAudioProcessorEditor()
+PolyEvolverContent::~PolyEvolverContent()
 {
     stopTimer();
     setLookAndFeel (nullptr);
 }
 
-ui::Section& PolyEvolverAudioProcessorEditor::addSection (int row, const juce::String& title)
+ui::Section& PolyEvolverContent::addSection (int row, const juce::String& title)
 {
     auto* sec = rows[row].add (new ui::Section (proc.apvts, title));
     addAndMakeVisible (sec);
     return *sec;
 }
 
-void PolyEvolverAudioProcessorEditor::applySkin (int index)
+void PolyEvolverContent::applySkin (int index)
 {
     ui::setSkin (index);
     skinSwitch.setCurrent (index);
@@ -894,7 +890,7 @@ void PolyEvolverAudioProcessorEditor::applySkin (int index)
     repaint();
 }
 
-void PolyEvolverAudioProcessorEditor::applyLane (int lane)
+void PolyEvolverContent::applyLane (int lane)
 {
     static const char* ids[3] = { "seq_step_", "seq_cut_", "seq_pan_" };
     lane = juce::jlimit (0, 2, lane);
@@ -906,7 +902,7 @@ void PolyEvolverAudioProcessorEditor::applyLane (int lane)
 }
 
 // ---------------------------------------------------------------- presets
-void PolyEvolverAudioProcessorEditor::rebuildPresetMenu()
+void PolyEvolverContent::rebuildPresetMenu()
 {
     presetBox.clear (juce::dontSendNotification);
 
@@ -926,7 +922,7 @@ void PolyEvolverAudioProcessorEditor::rebuildPresetMenu()
     showCurrentPreset();
 }
 
-void PolyEvolverAudioProcessorEditor::showCurrentPreset()
+void PolyEvolverContent::showCurrentPreset()
 {
     shownPreset = proc.getPresetName();
 
@@ -941,7 +937,7 @@ void PolyEvolverAudioProcessorEditor::showCurrentPreset()
     presetBox.setTextWhenNothingSelected (shownPreset);
 }
 
-void PolyEvolverAudioProcessorEditor::stepPreset (int delta)
+void PolyEvolverContent::stepPreset (int delta)
 {
     juce::StringArray names;
     for (const auto& f : evo::factoryPresets())
@@ -961,14 +957,14 @@ void PolyEvolverAudioProcessorEditor::stepPreset (int delta)
     showCurrentPreset();
 }
 
-void PolyEvolverAudioProcessorEditor::promptSavePreset()
+void PolyEvolverContent::promptSavePreset()
 {
     auto* aw = new juce::AlertWindow ("Save preset", "Name for this sound:", juce::MessageBoxIconType::NoIcon, this);
     aw->addTextEditor ("name", proc.getPresetName() == "Init" ? juce::String() : proc.getPresetName());
     aw->addButton ("Save", 1, juce::KeyPress (juce::KeyPress::returnKey));
     aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
 
-    juce::Component::SafePointer<PolyEvolverAudioProcessorEditor> safe (this);
+    juce::Component::SafePointer<PolyEvolverContent> safe (this);
 
     aw->enterModalState (true,
                          juce::ModalCallbackFunction::create ([safe, aw] (int result)
@@ -982,7 +978,7 @@ void PolyEvolverAudioProcessorEditor::promptSavePreset()
                          true);
 }
 
-void PolyEvolverAudioProcessorEditor::timerCallback()
+void PolyEvolverContent::timerCallback()
 {
     const double now = juce::Time::getMillisecondCounterHiRes();
     const float dt = juce::jlimit (0.001f, 0.1f, (float) ((now - lastTick) * 0.001));
@@ -1014,7 +1010,7 @@ void PolyEvolverAudioProcessorEditor::timerCallback()
     }
 }
 
-void PolyEvolverAudioProcessorEditor::paint (juce::Graphics& g)
+void PolyEvolverContent::paint (juce::Graphics& g)
 {
     using juce::Colour;
     using juce::ColourGradient;
@@ -1089,7 +1085,7 @@ void PolyEvolverAudioProcessorEditor::paint (juce::Graphics& g)
     screw (32.0f, (float) H - 20.0f, 1.1f);          screw ((float) W - 32.0f, (float) H - 20.0f, 2.4f);
 }
 
-void PolyEvolverAudioProcessorEditor::layoutRow (juce::Rectangle<int> area, const juce::OwnedArray<ui::Section>& row, int gap)
+void PolyEvolverContent::layoutRow (juce::Rectangle<int> area, const juce::OwnedArray<ui::Section>& row, int gap)
 {
     // Single-knob sections (Noise, Master) get a little extra width so their titles fit.
     auto weight = [] (int items) { return juce::jmax ((float) items, 1.6f); };
@@ -1114,7 +1110,7 @@ void PolyEvolverAudioProcessorEditor::layoutRow (juce::Rectangle<int> area, cons
     }
 }
 
-void PolyEvolverAudioProcessorEditor::resized()
+void PolyEvolverContent::resized()
 {
     // Everything is laid out proportionally, so the plug-in can be resized freely.
     static const float rowWeight[numRows] = { 1.0f, 1.0f, 1.0f, 0.88f, 1.0f, 1.28f };
@@ -1155,4 +1151,25 @@ void PolyEvolverAudioProcessorEditor::resized()
     nextButton.setBounds (bar.removeFromRight (28));
     bar.removeFromRight (4);
     presetBox.setBounds (bar);
+}
+
+// =========================================================== window (scales the content)
+PolyEvolverAudioProcessorEditor::PolyEvolverAudioProcessorEditor (PolyEvolverAudioProcessor& p)
+    : AudioProcessorEditor (&p), proc (p), content (p)
+{
+    addAndMakeVisible (content);
+
+    setResizable (true, true);
+    setResizeLimits (900, 450, 2700, 1350);
+    getConstrainer()->setFixedAspectRatio ((double) designW / (double) designH);
+
+    const int w = juce::jlimit (900, 2700, (int) proc.apvts.state.getProperty ("editorWidth", defaultW));
+    setSize (w, w * designH / designW);
+}
+
+void PolyEvolverAudioProcessorEditor::resized()
+{
+    content.setBounds (0, 0, designW, designH);
+    content.setTransform (juce::AffineTransform::scale ((float) getWidth() / (float) designW));
+    proc.apvts.state.setProperty ("editorWidth", getWidth(), nullptr);
 }
