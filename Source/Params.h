@@ -21,7 +21,7 @@ enum LfoShape { lfoSine = 0, lfoTriangle, lfoSaw, lfoSquare, lfoSampleHold };
 enum MatSrc { srcOff = 0, srcLfo1, srcLfo2, srcFiltEnv, srcAmpEnv, srcVelocity, srcModWheel, srcAftertouch, srcKey, srcRandom, numSrc };
 enum MatDst { dstOff = 0, dstPitch, dstShape, dstWave, dstCutoff, dstReso, dstAmp, dstPan, dstFM, dstRing, dstNoise, dstDetune, numDst };
 
-enum VoiceMode { modePoly = 0, modeMono, modeLegato };
+enum VoiceMode { modePoly = 0, modeMono };
 enum SeqDir    { dirForward = 0, dirBackward, dirPendulum, dirRandom };
 
 // Tempo-sync note lengths in quarter notes. Index 0 means "free" (Hz / ms), used by the LFOs and the delay.
@@ -73,7 +73,7 @@ struct ParamPointers
 
     // voice handling
     std::atomic<float>* voices    = nullptr;   // 0 = 4, 1 = 6, 2 = 8 voices
-    std::atomic<float>* voiceMode = nullptr;   // poly / mono / legato
+    std::atomic<float>* voiceMode = nullptr;   // poly / mono
     std::atomic<float>* glide     = nullptr;   // ms
     std::atomic<float>* bendRange = nullptr;   // semitones
 

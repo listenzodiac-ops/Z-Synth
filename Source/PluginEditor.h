@@ -262,7 +262,7 @@ public:
     void resized() override;
 
     static constexpr int designW = 1800, designH = 900;
-    static constexpr int defaultW = 1260;   // 1260 x 630 (70 %)
+    static constexpr int defaultW = 1500;   // 1500 x 750 (83 %)
 
 private:
     PolyEvolverAudioProcessor& proc;

@@ -98,10 +98,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     layout.add (std::make_unique<APF> (PID { "flt_sustain", 1 }, "Filter Sustain", Range (0.0f, 1.0f, 0.001f), 0.2f));
     layout.add (std::make_unique<APF> (PID { "flt_release", 1 }, "Filter Release", time(), 0.3f,   sec()));
 
-    layout.add (std::make_unique<APF> (PID { "amp_attack",  1 }, "Amp Attack",  time(), 0.005f, sec()));
-    layout.add (std::make_unique<APF> (PID { "amp_decay",   1 }, "Amp Decay",   time(), 0.3f,   sec()));
-    layout.add (std::make_unique<APF> (PID { "amp_sustain", 1 }, "Amp Sustain", Range (0.0f, 1.0f, 0.001f), 0.8f));
-    layout.add (std::make_unique<APF> (PID { "amp_release", 1 }, "Amp Release", time(), 0.25f,  sec()));
+    layout.add (std::make_unique<APF> (PID { "amp_attack",  1 }, "Amp Attack",  time(), 0.001f, sec()));
+    layout.add (std::make_unique<APF> (PID { "amp_decay",   1 }, "Amp Decay",   time(), 0.001f, sec()));
+    layout.add (std::make_unique<APF> (PID { "amp_sustain", 1 }, "Amp Sustain", Range (0.0f, 1.0f, 0.001f), 0.68f));
+    layout.add (std::make_unique<APF> (PID { "amp_release", 1 }, "Amp Release", time(), 0.001f, sec()));
 
     // ---- LFOs ---------------------------------------------------------------
     for (int i = 0; i < numLfos; ++i)
@@ -137,7 +137,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     // ---- Voices -------------------------------------------------------------
     layout.add (std::make_unique<APC> (PID { "voices", 1 }, "Voices", juce::StringArray { "4", "6", "8" }, 2));
     layout.add (std::make_unique<APC> (PID { "voice_mode", 1 }, "Voice Mode",
-                                       juce::StringArray { "Poly", "Mono", "Legato" }, 0));
+                                       juce::StringArray { "Poly", "Mono" }, 0));
     layout.add (std::make_unique<APF> (PID { "glide", 1 }, "Glide", skewed (0.0f, 2000.0f, 150.0f), 0.0f,
                                        Attr().withLabel ("ms")));
     layout.add (std::make_unique<APF> (PID { "bend_range", 1 }, "Bend Range",

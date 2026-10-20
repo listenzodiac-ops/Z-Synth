@@ -202,12 +202,6 @@ public:
     // The next startNote() glides up/down from this note number.
     void setGlideSource (float fromNote) noexcept { pendingGlideFrom = fromNote; }
 
-    // Legato: change pitch without touching the envelopes.
-    void retarget (int newNote) noexcept
-    {
-        note = newNote;
-    }
-
     bool canPlaySound (juce::SynthesiserSound* s) override
     {
         return dynamic_cast<EvolverSound*> (s) != nullptr;

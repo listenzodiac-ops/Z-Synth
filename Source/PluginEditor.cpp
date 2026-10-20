@@ -906,9 +906,34 @@ void PolyEvolverContent::rebuildPresetMenu()
 {
     presetBox.clear (juce::dontSendNotification);
 
+    // Factory presets live in folders (Bass, Pad, Lead, ...); "Init" sits at the top.
     const auto& list = evo::factoryPresets();
+    auto* root = presetBox.getRootMenu();
+    juce::String folder;
+    juce::PopupMenu sub;
+
+    auto closeFolder = [&]
+    {
+        if (folder.isNotEmpty())
+            root->addSubMenu (folder, sub);
+        sub = juce::PopupMenu();
+    };
+
     for (size_t i = 0; i < list.size(); ++i)
-        presetBox.addItem (list[i].name, (int) i + 1);
+    {
+        const juce::String cat (list[i].category);
+        if (cat != folder)
+        {
+            closeFolder();
+            folder = cat;
+        }
+
+        if (cat.isEmpty())
+            root->addItem ((int) i + 1, list[i].name);
+        else
+            sub.addItem ((int) i + 1, list[i].name);
+    }
+    closeFolder();
 
     const auto user = evo::PresetManager::userNames();
     if (user.size() > 0)
@@ -1163,7 +1188,7 @@ PolyEvolverAudioProcessorEditor::PolyEvolverAudioProcessorEditor (PolyEvolverAud
     setResizeLimits (900, 450, 2700, 1350);
     getConstrainer()->setFixedAspectRatio ((double) designW / (double) designH);
 
-    const int w = juce::jlimit (900, 2700, (int) proc.apvts.state.getProperty ("editorWidth", defaultW));
+    const int w = juce::jlimit (900, 2700, (int) proc.apvts.state.getProperty ("uiWidth", defaultW));
     setSize (w, w * designH / designW);
 }
 
@@ -1171,5 +1196,5 @@ void PolyEvolverAudioProcessorEditor::resized()
 {
     content.setBounds (0, 0, designW, designH);
     content.setTransform (juce::AffineTransform::scale ((float) getWidth() / (float) designW));
-    proc.apvts.state.setProperty ("editorWidth", getWidth(), nullptr);
+    proc.apvts.state.setProperty ("uiWidth", getWidth(), nullptr);
 }

@@ -6,7 +6,7 @@
 
 namespace evo
 {
-// Synthesiser with a voice limit (4/6/8), mono and legato modes with a last-note-priority
+// Synthesiser with a voice limit (4/6/8), a mono mode with a last-note-priority
 // note stack, and portamento (glide) from the previously played note.
 class EvoSynth : public juce::Synthesiser
 {
@@ -40,7 +40,7 @@ public:
             return;
         }
 
-        // Mono / legato
+        // Mono
         noteStack.removeFirstMatchingValue (midiNoteNumber);
         noteStack.add (midiNoteNumber);
 
@@ -52,18 +52,7 @@ public:
             if (voices[i]->isVoiceActive())
                 stopVoice (voices[i], 1.0f, false);
 
-        const bool held = v->isVoiceActive() && v->isKeyDown();
-
-        if (mode == modeLegato && held)
-        {
-            if (P.glide->load() > 0.5f)
-                v->setGlideSource (-1.0f);   // glide continues from where the pitch currently is
-            v->retarget (midiNoteNumber);
-        }
-        else
-        {
-            startWithGlide (v, sound.get(), midiChannel, midiNoteNumber, velocity);
-        }
+        startWithGlide (v, sound.get(), midiChannel, midiNoteNumber, velocity);
 
         lastNote = midiNoteNumber;
     }
@@ -97,9 +86,7 @@ public:
         if (back == lastNote)
             return;
 
-        if (mode == modeLegato)
-            v->retarget (back);
-        else if (auto sound = sounds.getFirst())
+        if (auto sound = sounds.getFirst())
             startWithGlide (v, sound.get(), midiChannel, back, 0.8f);
 
         lastNote = back;

@@ -25,6 +25,9 @@ void PolyEvolverAudioProcessor::prepareToPlay (double sampleRate, int)
     reverb.prepare (sampleRate);
     masterGain.reset (sampleRate, 0.02);
     masterGain.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (params.master->load()));
+    presetFade.reset (sampleRate, 0.08);
+    presetFade.setCurrentAndTargetValue (1.0f);
+    seenPresetChanges = presets.changes.load();
     haveTick = false;
     seqState = {};
     perfState.seqMute = false;
@@ -179,9 +182,18 @@ void PolyEvolverAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     // Master volume + soft clip so a loud patch can't blast your ears or speakers.
     masterGain.setTargetValue (juce::Decibels::decibelsToGain (params.master->load()));
 
+    // A preset was just loaded: drop to silence and fade back in over 80 ms.
+    const int presetChanges = presets.changes.load();
+    if (presetChanges != seenPresetChanges)
+    {
+        seenPresetChanges = presetChanges;
+        presetFade.setCurrentAndTargetValue (0.0f);
+        presetFade.setTargetValue (1.0f);
+    }
+
     for (int i = 0; i < numSamples; ++i)
     {
-        const float gain = masterGain.getNextValue();
+        const float gain = masterGain.getNextValue() * presetFade.getNextValue();
         for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
         {
             auto* data = buffer.getWritePointer (ch);
@@ -207,7 +219,11 @@ void PolyEvolverAudioProcessor::setCurrentProgram (int index)
 const juce::String PolyEvolverAudioProcessor::getProgramName (int index)
 {
     const auto& list = evo::factoryPresets();
-    return juce::isPositiveAndBelow (index, (int) list.size()) ? juce::String (list[(size_t) index].name) : juce::String();
+    if (! juce::isPositiveAndBelow (index, (int) list.size()))
+        return {};
+
+    const auto& f = list[(size_t) index];
+    return juce::String (f.category).isEmpty() ? juce::String (f.name) : juce::String (f.category) + ": " + f.name;   // e.g. "Bass: Velvet Reese"
 }
 
 juce::AudioProcessorEditor* PolyEvolverAudioProcessor::createEditor()

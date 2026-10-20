@@ -58,6 +58,8 @@ private:
     evo::StereoDelay delay;
     evo::SpaceReverb reverb;
     juce::SmoothedValue<float> masterGain;
+    juce::SmoothedValue<float> presetFade { 1.0f };   // dips to silence and ramps back after a preset change
+    int seenPresetChanges = 0;
 
     double sampleRateHz = 44100.0;
     double internalPpq  = 0.0;               // free-running clock used by the standalone app
