@@ -5,6 +5,28 @@
 
 namespace evo
 {
+#ifdef EVO_LIMIT_PROBE
+inline int evoLimitHits = 0;   // test builds only: counts how often the safety limiter actually acts
+#endif
+
+// Transparent up to 2.0 (far above anything the synth makes on purpose, factory presets peak at about 1.5
+// in the loudest case), then rolls off smoothly towards 3.0. It sits ahead of the effects and inside their
+// feedback loops, so no glitch can ever park a huge level in a delay line or the reverb and keep it ringing
+// for seconds. NaN / infinity / absurd values become 0.
+inline float softLimit (float x) noexcept
+{
+    const float a = std::fabs (x);
+    if (a <= 2.0f)
+        return x;
+#ifdef EVO_LIMIT_PROBE
+    ++evoLimitHits;
+#endif
+    if (! (a < 1.0e6f))
+        return 0.0f;
+    const float y = 2.0f + std::tanh (a - 2.0f);
+    return x < 0.0f ? -y : y;
+}
+
 // Simple stereo feedback delay. The right channel runs slightly longer than the
 // left so a mono signal gets a wide, bouncing echo. A one-pole lowpass in the
 // feedback path darkens each repeat (like the Evolver's analog-flavoured delay).
@@ -23,6 +45,13 @@ public:
         lowpass[0] = lowpass[1] = 0.0f;
         time.reset (newSampleRate, 0.05);
         time.setCurrentAndTargetValue (300.0f);
+    }
+
+    void clear()
+    {
+        for (auto& b : buffer)
+            std::fill (b.begin(), b.end(), 0.0f);
+        lowpass[0] = lowpass[1] = 0.0f;
     }
 
     void process (float* left, float* right, int numSamples,
@@ -46,8 +75,8 @@ public:
             lowpass[0] = (1.0f - a) * wetL + a * lowpass[0];
             lowpass[1] = (1.0f - a) * wetR + a * lowpass[1];
 
-            buffer[0][(size_t) writePos] = left[i]  + lowpass[0] * feedback;
-            buffer[1][(size_t) writePos] = right[i] + lowpass[1] * feedback;
+            buffer[0][(size_t) writePos] = softLimit (left[i]  + lowpass[0] * feedback);
+            buffer[1][(size_t) writePos] = softLimit (right[i] + lowpass[1] * feedback);
 
             left[i]  += lowpass[0] * mix;
             right[i] += lowpass[1] * mix;

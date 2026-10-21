@@ -2,6 +2,7 @@
 
 #include <JuceHeader.h>
 #include <vector>
+#include "StereoDelay.h"   // softLimit
 
 namespace evo
 {
@@ -15,8 +16,13 @@ class Distortion
 public:
     enum Type { soft = 0, hard, fold, crush };
 
+    void reset() { prevL = prevR = heldL = heldR = holdPhase = 0.0f; }
+
     void process (float* left, float* right, int n, int type, float drive01, float mix)
     {
+        if (n <= 0)
+            return;
+
         if (mix <= 0.0001f)
         {
             prevL = left[n - 1]; prevR = right[n - 1];
@@ -85,6 +91,11 @@ public:
         for (auto& b : buffer) b.assign ((size_t) len, 0.0f);
         pos = 0;
         phase = 0.0f;
+    }
+
+    void clear()
+    {
+        for (auto& b : buffer) std::fill (b.begin(), b.end(), 0.0f);
     }
 
     void process (float* left, float* right, int n, float rateHz, float depth01, float mix)
@@ -176,6 +187,15 @@ public:
         active = false;
     }
 
+    // Empties the whole tank (used when a preset is loaded so no old tail can carry over).
+    void reset()
+    {
+        if (lines[0].empty())
+            return;
+        clear();
+        active = false;
+    }
+
     void process (float* left, float* right, int n, float size01, float damp01, float mix)
     {
         if (lines[0].empty())
@@ -250,7 +270,7 @@ public:
             for (int i = 0; i < N; ++i)
             {
                 const float fb = out[i] - h;
-                lines[i][(size_t) pos[i]] = fb + 0.35f * in[i & 1];
+                lines[i][(size_t) pos[i]] = softLimit (fb + 0.35f * in[i & 1]);
                 if (++pos[i] >= (int) lines[i].size()) pos[i] = 0;
 
                 // alternate taps with alternating signs for L and R

@@ -859,6 +859,18 @@ PolyEvolverContent::PolyEvolverContent (PolyEvolverAudioProcessor& p)
     saveButton.onClick = [this] { promptSavePreset(); };
     rebuildPresetMenu();
 
+    // ---- window size dropdown ----
+    for (int i = 0; i < PolyEvolverAudioProcessorEditor::numScaleSteps; ++i)
+        scaleBox.addItem (juce::String (PolyEvolverAudioProcessorEditor::scaleSteps[i]) + "%", i + 1);
+    scaleBox.setJustificationType (juce::Justification::centred);
+    scaleBox.onChange = [this]
+    {
+        const int id = scaleBox.getSelectedId();
+        if (id > 0 && onSizePicked)
+            onSizePicked (PolyEvolverAudioProcessorEditor::scaleBase * PolyEvolverAudioProcessorEditor::scaleSteps[id - 1] / 100);
+    };
+    addAndMakeVisible (scaleBox);
+
     setSize (PolyEvolverAudioProcessorEditor::designW, PolyEvolverAudioProcessorEditor::designH);
 
     applyLane ((int) (proc.apvts.getRawParameterValue ("seq_dest")->load() + 0.5f));
@@ -1176,25 +1188,114 @@ void PolyEvolverContent::resized()
     nextButton.setBounds (bar.removeFromRight (28));
     bar.removeFromRight (4);
     presetBox.setBounds (bar);
+
+    // window size dropdown, just right of the SAVE button
+    const int barRight = juce::jmax (520, getWidth() / 2 - 60) + 380;
+    scaleBox.setBounds (barRight + 16, 20, 92, 26);
+}
+
+// Shows which size the window currently has (a listed percentage, or the exact percentage if you dragged it).
+void PolyEvolverContent::showScale (int widthPx)
+{
+    int match = 0;
+    for (int i = 0; i < PolyEvolverAudioProcessorEditor::numScaleSteps; ++i)
+        if (std::abs (widthPx - PolyEvolverAudioProcessorEditor::scaleBase * PolyEvolverAudioProcessorEditor::scaleSteps[i] / 100) <= 2)
+            match = i + 1;
+
+    if (match > 0)
+    {
+        scaleBox.setSelectedId (match, juce::dontSendNotification);
+    }
+    else
+    {
+        scaleBox.setSelectedId (0, juce::dontSendNotification);
+        scaleBox.setTextWhenNothingSelected (juce::String (juce::roundToInt (widthPx * 100.0 / PolyEvolverAudioProcessorEditor::scaleBase)) + "%");
+    }
 }
 
 // =========================================================== window (scales the content)
+namespace
+{
+// The window size is remembered in a tiny settings file next to the presets, so it is the same for every
+// window you open, in every project, and survives restarting the DAW.
+juce::File settingsFile()
+{
+    return evo::PresetManager::userDir().getParentDirectory().getChildFile ("settings.xml");
+}
+
+int loadSavedWidth()
+{
+    if (auto xml = juce::XmlDocument::parse (settingsFile()))
+        if (xml->hasTagName ("ZSynthSettings"))
+            return xml->getIntAttribute ("uiWidth", 0);
+    return 0;
+}
+
+void saveWidth (int w)
+{
+    juce::XmlElement xml ("ZSynthSettings");
+    xml.setAttribute ("uiWidth", w);
+    xml.writeTo (settingsFile());
+}
+
+// Widest window that still fits on the main screen (the height also has to leave room for the host's own
+// title bar and header). Only used for the very first opening, before you have picked a size yourself.
+int widthThatFitsScreen()
+{
+    if (auto* d = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay())
+    {
+        const auto area = d->userArea;
+        return juce::jmax (900, juce::jmin (area.getWidth() - 40, (area.getHeight() - 130) * 2));
+    }
+    return PolyEvolverAudioProcessorEditor::defaultW;
+}
+} // namespace
+
 PolyEvolverAudioProcessorEditor::PolyEvolverAudioProcessorEditor (PolyEvolverAudioProcessor& p)
     : AudioProcessorEditor (&p), proc (p), content (p)
 {
+    openedAt = juce::Time::getMillisecondCounter();   // resizes in the first moments are not the user's doing
+
     addAndMakeVisible (content);
+    content.onSizePicked = [this] (int w) { applyWidth (w); };
 
     setResizable (true, true);
     setResizeLimits (900, 450, 2700, 1350);
     getConstrainer()->setFixedAspectRatio ((double) designW / (double) designH);
 
-    const int w = juce::jlimit (900, 2700, (int) proc.apvts.state.getProperty ("uiWidth", defaultW));
+    savedWidth = loadSavedWidth();
+    int w = savedWidth > 0 ? savedWidth : juce::jmin (defaultW, widthThatFitsScreen());
+    w = juce::jlimit (900, 2700, w);
     setSize (w, w * designH / designW);
+    content.showScale (getWidth());
 }
 
 void PolyEvolverAudioProcessorEditor::resized()
 {
     content.setBounds (0, 0, designW, designH);
     content.setTransform (juce::AffineTransform::scale ((float) getWidth() / (float) designW));
-    proc.apvts.state.setProperty ("uiWidth", getWidth(), nullptr);
+    content.showScale (getWidth());
+
+    // Once you stop dragging the corner for a moment, that size becomes the new default.
+    if (juce::Time::getMillisecondCounter() - openedAt > 1500)
+        startTimer (600);
+}
+
+void PolyEvolverAudioProcessorEditor::timerCallback()
+{
+    stopTimer();
+
+    if (getWidth() != savedWidth)
+    {
+        savedWidth = getWidth();
+        saveWidth (savedWidth);
+    }
+}
+
+void PolyEvolverAudioProcessorEditor::applyWidth (int w)
+{
+    w = juce::jlimit (900, 2700, w);
+    savedWidth = w;
+    saveWidth (w);                       // a size picked from the dropdown is saved straight away
+    setSize (w, w * designH / designW);
 }

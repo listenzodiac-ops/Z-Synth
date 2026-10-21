@@ -60,6 +60,7 @@ private:
     juce::SmoothedValue<float> masterGain;
     juce::SmoothedValue<float> presetFade { 1.0f };   // dips to silence and ramps back after a preset change
     int seenPresetChanges = 0;
+    int fadePhase = 0;                                // 1 = ducking to silence after a preset change
 
     double sampleRateHz = 44100.0;
     double internalPpq  = 0.0;               // free-running clock used by the standalone app
@@ -69,6 +70,7 @@ private:
     int    currentProgram = 0;
 
     void applyStep (int step);
+    void resetEffects();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PolyEvolverAudioProcessor)
 };

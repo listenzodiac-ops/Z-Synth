@@ -1268,7 +1268,7 @@ inline const std::vector<FactoryPreset>& factoryPresets()
             { "cutoff", 2800 }, { "resonance", 0.3f }, { "filter_env", 0.4f },
             { "flt_decay", 0.5f }, { "flt_sustain", 0.3f },
             { "amp_attack", 0.005f }, { "amp_decay", 0.3f }, { "amp_sustain", 0.9f }, { "amp_release", 0.35f },
-            { "voice_mode", 2 }, { "glide", 60 },
+            { "voice_mode", 1 }, { "glide", 60 },
             { "lfo1_rate", 5.5f }, { "lfo1_amount", 0.03f }, { "lfo1_dest", 1 },
             { "delay_sync", 11 }, { "delay_feedback", 0.4f }, { "delay_mix", 0.25f },
             { "reverb_mix", 0.2f } } },

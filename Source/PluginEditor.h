@@ -214,6 +214,10 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
+    // Window size dropdown: the window tells us its current width, we tell it when a size is picked.
+    void showScale (int widthPx);
+    std::function<void (int)> onSizePicked;
+
 private:
     static constexpr int numRows = 6;
 
@@ -233,6 +237,7 @@ private:
     // preset bar
     juce::ComboBox presetBox;
     juce::TextButton prevButton { "<" }, nextButton { ">" }, saveButton { "SAVE" };
+    juce::ComboBox scaleBox;                 // window size (percent)
     juce::String shownPreset;
     int presetPoll = 0;
     void rebuildPresetMenu();
@@ -252,21 +257,34 @@ private:
 };
 
 // The window the host sees. It holds the whole interface at its design size (1800 x 900) and simply scales
-// it, so the layout looks identical at any size. It opens at a laptop-friendly size and remembers the size
-// you drag it to (saved with the project).
-class PolyEvolverAudioProcessorEditor : public juce::AudioProcessorEditor
+// it, so the layout looks identical at any size.
+//   * First ever opening: 1950 x 975 (130 %), or the biggest size that fits on the screen if that is smaller.
+//   * The SIZE dropdown in the header picks a size; dragging the corner works too.
+//   * The last size you picked or dragged to is saved in a small settings file and used for every new
+//     window, in every project, from then on (also after restarting the DAW).
+class PolyEvolverAudioProcessorEditor : public juce::AudioProcessorEditor,
+                                        private juce::Timer
 {
 public:
     explicit PolyEvolverAudioProcessorEditor (PolyEvolverAudioProcessor&);
+    ~PolyEvolverAudioProcessorEditor() override { stopTimer(); }
 
     void resized() override;
 
     static constexpr int designW = 1800, designH = 900;
-    static constexpr int defaultW = 1500;   // 1500 x 750 (83 %)
+    static constexpr int scaleBase = 1500;                 // the dropdown shows percent of this width (100 % = 1500 x 750)
+    static constexpr int defaultW  = 1950;                 // 130 %
+    static constexpr int numScaleSteps = 10;
+    static constexpr int scaleSteps[numScaleSteps] = { 70, 80, 90, 100, 110, 120, 130, 140, 150, 175 };
 
 private:
+    void timerCallback() override;
+    void applyWidth (int w);
+
     PolyEvolverAudioProcessor& proc;
     PolyEvolverContent content;
+    int savedWidth = 0;                                    // what the settings file currently holds (0 = nothing saved yet)
+    juce::uint32 openedAt = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PolyEvolverAudioProcessorEditor)
 };

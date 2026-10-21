@@ -28,6 +28,8 @@ void PolyEvolverAudioProcessor::prepareToPlay (double sampleRate, int)
     presetFade.reset (sampleRate, 0.08);
     presetFade.setCurrentAndTargetValue (1.0f);
     seenPresetChanges = presets.changes.load();
+    fadePhase = 0;
+    resetEffects();
     haveTick = false;
     seqState = {};
     perfState.seqMute = false;
@@ -44,6 +46,9 @@ void PolyEvolverAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 
     const int numSamples = buffer.getNumSamples();
     buffer.clear();
+
+    if (numSamples <= 0)
+        return;
 
     // Merge notes played on the on-screen keyboard into the host's MIDI stream.
     keyboardState.processNextMidiBuffer (midi, 0, numSamples, true);
@@ -159,6 +164,30 @@ void PolyEvolverAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
         synth.renderNextBlock (buffer, midi, 0, numSamples);
     }
 
+    // ---- safety: nothing broken or enormous may reach the effects ---------------------------
+    // Normal sound is well below 1.0 here and passes through untouched. A NaN, an infinity or an absurd
+    // spike is removed, the voices are stopped and every effect tail is emptied, so a glitch can never
+    // end up ringing in the delay or reverb.
+    {
+        bool glitch = false;
+        for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+        {
+            auto* d = buffer.getWritePointer (ch);
+            for (int i = 0; i < numSamples; ++i)
+            {
+                if (! (std::fabs (d[i]) < 1.0e4f))
+                    glitch = true;
+                d[i] = evo::softLimit (d[i]);
+            }
+        }
+
+        if (glitch)
+        {
+            synth.allNotesOff (0, false);
+            resetEffects();
+        }
+    }
+
     // ---- effects: distortion -> chorus -> delay -> reverb --------------------------------
     if (buffer.getNumChannels() >= 2)
     {
@@ -182,24 +211,59 @@ void PolyEvolverAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     // Master volume + soft clip so a loud patch can't blast your ears or speakers.
     masterGain.setTargetValue (juce::Decibels::decibelsToGain (params.master->load()));
 
-    // A preset was just loaded: drop to silence and fade back in over 80 ms.
+    // A preset was just loaded: duck to silence in 6 ms, empty every effect tail (so nothing from the old
+    // sound can carry over), then fade the new sound in over 80 ms.
     const int presetChanges = presets.changes.load();
     if (presetChanges != seenPresetChanges)
     {
         seenPresetChanges = presetChanges;
-        presetFade.setCurrentAndTargetValue (0.0f);
-        presetFade.setTargetValue (1.0f);
+        const float now = presetFade.getCurrentValue();
+        presetFade.reset (sampleRateHz, 0.006);
+        presetFade.setCurrentAndTargetValue (now);
+        presetFade.setTargetValue (0.0f);
+        fadePhase = 1;
     }
+
+    bool broken = false;
 
     for (int i = 0; i < numSamples; ++i)
     {
+        if (fadePhase == 1 && ! presetFade.isSmoothing())   // silent now: flush, then bring the new sound in
+        {
+            resetEffects();
+            presetFade.reset (sampleRateHz, 0.08);
+            presetFade.setCurrentAndTargetValue (0.0f);
+            presetFade.setTargetValue (1.0f);
+            fadePhase = 0;
+        }
+
         const float gain = masterGain.getNextValue() * presetFade.getNextValue();
         for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
         {
             auto* data = buffer.getWritePointer (ch);
-            data[i] = std::tanh (data[i] * gain);
+            float out = std::tanh (data[i] * gain);
+            if (! (std::fabs (out) <= 1.0f))   // NaN or infinity: never let it out
+            {
+                out = 0.0f;
+                broken = true;
+            }
+            data[i] = out;
         }
     }
+
+    if (broken)
+    {
+        synth.allNotesOff (0, false);
+        resetEffects();
+    }
+}
+
+void PolyEvolverAudioProcessor::resetEffects()
+{
+    distortion.reset();
+    chorus.clear();
+    delay.clear();
+    reverb.reset();
 }
 
 void PolyEvolverAudioProcessor::applyStep (int step)
